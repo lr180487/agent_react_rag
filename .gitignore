@@ -8,3 +8,10 @@ __pycache__/
 .ruff_cache/
 *.db
 uv.lock
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+.pytest_cache/
