@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nuevo Chat — Tus conversaciones</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="favicon.png">
+<style>
+  :root{
+    --bg:#f3f5f9; --panel:#ffffff; --panel-2:#f1f4f8; --border:#e2e8f0; --border-strong:#d8e0ec; --muted:#64748b; --text:#0f172a;
+    --primary:#7c5cff; --primary-2:#5a36ff; --success:#10b981; --warning:#f59e0b; --danger:#ef4444;
+    --radius:14px; --shadow:0 10px 24px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.06); --shadow-lg:0 18px 40px rgba(15,23,42,.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:#cbd5e1 #f1f5f9;overflow-y:auto;overflow-x:hidden;height:auto}
+  html::-webkit-scrollbar{width:12px;height:12px}
+  html::-webkit-scrollbar-track{background:#f1f5f9}
+  html::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px;border:3px solid #f1f5f9;background-clip:content-box}
+  html::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+  body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
+  body::-webkit-scrollbar{width:12px;height:12px}
+  body::-webkit-scrollbar-track{background:#f1f5f9}
+  body::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px;border:3px solid #f1f5f9;background-clip:content-box;min-height:50px}
+  body::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+  body::-webkit-scrollbar-thumb:active{background:var(--primary)}
+  /* Scrollbar custom para cada scroll */
+  .chat-list::-webkit-scrollbar, .chat-scroll::-webkit-scrollbar, .msg-edit::-webkit-scrollbar{width:12px;height:12px}
+  .chat-list::-webkit-scrollbar-track, .chat-scroll::-webkit-scrollbar-track{background:#eef2f7;border-radius:999px;margin:3px 2px;border:1px solid #e2e8f0}
+  .chat-list::-webkit-scrollbar-thumb, .chat-scroll::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:999px;border:3px solid #eef2f7;background-clip:content-box;min-height:60px}
+  .chat-list::-webkit-scrollbar-thumb:hover, .chat-scroll::-webkit-scrollbar-thumb:hover{background:#7c5cff}
+  .chat-list::-webkit-scrollbar-thumb:active, .chat-scroll::-webkit-scrollbar-thumb:active{background:var(--primary);border-color:#ede9fe}
+  .chat-list, .chat-scroll{scrollbar-width:thin;scrollbar-color:#cbd5e1 #f1f5f9;scrollbar-gutter:stable}
+  html, body{scrollbar-gutter:stable}
+  /* Scroll independiente corregido: cada ventana scrollea sola sin arrastrar la página */
+  /* Botón flotante para volver abajo */
+  .scroll-bottom{position:absolute;bottom:88px;right:20px;width:40px;height:40px;border-radius:50%;background:white;border:1px solid var(--border);box-shadow:0 8px 22px rgba(15,23,42,.14),0 2px 6px rgba(15,23,42,.06);display:grid;place-items:center;cursor:pointer;color:var(--primary);font-size:15px;font-weight:900;opacity:0;transform:translateY(8px) scale(.96);pointer-events:none;transition:opacity .2s, transform .2s;z-index:5}
+  .scroll-bottom.show{opacity:1;transform:none;pointer-events:auto}
+  .scroll-bottom:hover{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;border-color:transparent;transform:translateY(-1px);box-shadow:0 10px 24px rgba(124,92,255,.22)}
+  .scroll-chats{position:absolute;bottom:96px;left:50%;transform:translateX(-50%) translateY(8px) scale(.96);width:32px;height:32px;border-radius:50%;background:white;border:1px solid var(--border);box-shadow:0 6px 18px rgba(15,23,42,.12);display:grid;place-items:center;cursor:pointer;color:var(--primary);font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:6}
+  .scroll-chats.show{opacity:1;transform:translateX(-50%) scale(1);pointer-events:auto}
+  .scroll-chats:hover{background:var(--primary);color:white;border-color:var(--primary)}
+  .chat-main{position:relative;display:flex;flex-direction:column;min-height:0;overflow:visible}
+  /* Header */
+  .header{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.96);backdrop-filter:blur(10px);flex-shrink:0}
+  .brand{display:flex;align-items:center;gap:10px}
+  .logo-wrap{position:relative;width:42px;height:42px;display:grid;place-items:center}
+  .logo{width:34px;height:34px;border-radius:10px;background:white;border:1px solid var(--border);display:grid;place-items:center;overflow:hidden;padding:2px;box-shadow:0 4px 12px rgba(15,23,42,.08);z-index:2;font-size:17px}
+  .logo-spinner{position:absolute;inset:0;border-radius:13px;border:3px solid #e8ecf3;border-top-color:var(--primary);border-right-color:#2ec5ff;opacity:0;visibility:hidden;transition:opacity .25s}
+  .logo-wrap.loading .logo-spinner, .logo-wrap.initial-loading .logo-spinner{opacity:1;visibility:visible;animation:spin .9s linear infinite}
+  .logo-wrap.loading .logo-spinner{animation-duration:.6s}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .brand h1{font-size:14px;font-weight:900}
+  .brand p{font-size:10px;color:var(--muted);font-weight:600;margin-top:1px}
+  .header-actions{display:flex;align-items:center;gap:8px}
+  .select{padding:8px 10px;border-radius:999px;background:#f8fafc;border:1px solid var(--border);font-size:12px;font-weight:700;color:var(--text);outline:none}
+  .btn{appearance:none;border:none;cursor:pointer;font-weight:700;font-size:13px;padding:8px 14px;border-radius:999px;transition:.15s;display:inline-flex;align-items:center;gap:7px}
+  .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;box-shadow:0 6px 16px rgba(124,92,255,.24)}
+  .btn-ghost{background:white;border:1px solid var(--border);color:var(--text)}
+  .btn-ghost:hover{background:var(--panel-2)}
+  .btn-sm{padding:7px 11px;font-size:12px}
+  .badge{font-size:10px;font-weight:800;padding:3px 7px;border-radius:999px;border:1px solid var(--border);background:white}
+  .badge.db{color:var(--success);border-color:rgba(16,185,129,.25);background:#ecfdf5}
+  .badge.local{color:var(--warning);border-color:#fde68a;background:#fffbeb}
+  /* Layout */
+  .app{display:grid;grid-template-columns:300px 1fr;flex:1;min-height:calc(100vh - 56px);overflow:visible}
+  @media(max-width:900px){.app{grid-template-columns:1fr;overflow-y:auto}.sidebar{display:none}.sidebar.mobile-open{display:flex;position:fixed;inset:56px 0 0 0;z-index:15;box-shadow:var(--shadow-lg)} body{overflow-y:auto} html{overflow-y:auto}}
+  .sidebar{background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:visible;position:relative;min-height:0}
+  .side-top{padding:12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:10px}
+  .side-search{position:relative}
+  .side-search input{width:100%;padding:9px 11px 9px 34px;border-radius:10px;background:#f8fafc;border:1px solid var(--border);font-size:13px;font-weight:600;outline:none;color:var(--text)}
+  .side-search input:focus{border-color:rgba(124,92,255,.4);box-shadow:0 0 0 3px rgba(124,92,255,.10);background:white}
+  .side-search span{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px}
+  /* Lista con scroll propio */
+  .chat-list{flex:1;overflow-y:auto;overflow-x:hidden;padding:10px;display:flex;flex-direction:column;gap:7px;scroll-behavior:smooth;overscroll-behavior:contain;
+    background:
+      linear-gradient(white, rgba(255,255,255,0)) center top / 100% 14px no-repeat,
+      linear-gradient(rgba(255,255,255,0), white) center bottom / 100% 14px no-repeat,
+      radial-gradient(farthest-side at 50% 0, rgba(15,23,42,.10), transparent) center top / 100% 10px no-repeat,
+      radial-gradient(farthest-side at 50% 100%, rgba(15,23,42,.10), transparent) center bottom / 100% 10px no-repeat;
+    background-attachment: local, local, scroll, scroll;
+  }
+  .chat-item{padding:10px 11px;border-radius:12px;border:1px solid transparent;cursor:pointer;display:flex;flex-direction:column;gap:5px;transition:.15s;position:relative;background:white}
+  .chat-item:hover{border-color:var(--border);box-shadow:0 2px 10px rgba(15,23,42,.05);transform:translateY(-1px)}
+  .chat-item.active{background:linear-gradient(135deg,rgba(124,92,255,.09),rgba(46,197,255,.07));border-color:rgba(124,92,255,.24);box-shadow:0 4px 14px rgba(124,92,255,.10)}
+  .chat-item-top{display:flex;align-items:center;gap:6px}
+  .chat-item-top strong{flex:1;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .item-actions{display:flex;gap:4px;opacity:0;transition:.15s}
+  .chat-item:hover .item-actions{opacity:1}
+  .mini-icon{width:22px;height:22px;border-radius:7px;background:var(--panel-2);border:1px solid var(--border);display:grid;place-items:center;font-size:11px;cursor:pointer}
+  .mini-icon:hover{background:white;border-color:var(--border-strong)}
+  .mini-icon.danger:hover{background:var(--danger);color:white;border-color:var(--danger)}
+  .chat-item p{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .chat-item small{font-size:10px;color:var(--muted);font-weight:700;display:flex;gap:6px;align-items:center}
+  .side-footer{padding:10px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+  .tip{padding:10px;border-radius:10px;background:#f8f9ff;border:1px solid #e6e8ff;font-size:11px;line-height:1.5;color:var(--muted)}
+  /* Chat main - scroll por chat */
+  .chat-main{display:flex;flex-direction:column;min-width:0;background: radial-gradient(600px 280px at 50% 0%, rgba(124,92,255,.06), transparent 65%), var(--bg)}
+  .chat-header-mini{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.85);backdrop-filter:blur(6px);flex-shrink:0}
+  .chat-title{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+  .chat-title strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+  .chat-title input{flex:1;max-width:320px;padding:6px 8px;border-radius:8px;border:1px solid var(--primary);font-size:13px;font-weight:700;outline:none}
+  .chat-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:16px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth;position:relative;overscroll-behavior:contain;max-height:calc(100vh - 56px - 42px - 92px);min-height:360px;
+    background-color:#ffffff;
+    border:1px solid var(--border);
+    border-radius:18px;
+    margin:12px;
+    box-shadow:var(--shadow);
+    background-image:
+      linear-gradient(white, rgba(255,255,255,0)) ,
+      linear-gradient(rgba(255,255,255,0), white) ,
+      radial-gradient(farthest-side at 50% 0, rgba(15,23,42,.08), transparent),
+      radial-gradient(farthest-side at 50% 100%, rgba(15,23,42,.08), transparent);
+    background-size: 100% 18px, 100% 18px, 100% 12px, 100% 12px;
+    background-position: center top, center bottom, center top, center bottom;
+    background-repeat: no-repeat;
+    background-attachment: local, local, scroll, scroll;
+  }
+  .scroll-anchor{height:1px}
+  .load-more{margin:0 auto;padding:6px 12px;border-radius:999px;background:white;border:1px solid var(--border);font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;display:none}
+  .load-more.show{display:inline-flex}
+  .empty{flex:1;display:grid;place-items:center;padding:20px;text-align:center}
+  .empty-card{max-width:560px;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:22px;box-shadow:var(--shadow)}
+  .empty-card h2{font-size:18px;font-weight:900;margin-bottom:6px}
+  .empty-card p{font-size:13px;color:var(--muted);line-height:1.6}
+  .suggestions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;text-align:left}
+  .suggestion{padding:12px;border-radius:12px;background:#f8fafc;border:1px solid var(--border);cursor:pointer;transition:.15s}
+  .suggestion:hover{background:white;border-color:rgba(124,92,255,.25);transform:translateY(-1px);box-shadow:0 6px 16px rgba(15,23,42,.06)}
+  .suggestion strong{font-size:12px;display:block;margin-bottom:4px}
+  .suggestion span{font-size:11px;color:var(--muted)}
+  @media(max-width:600px){.suggestions{grid-template-columns:1fr}}
+  .msg-row{display:flex;gap:10px;max-width:860px;width:100%;margin:0 auto;position:relative;group}
+  .msg-row.user{justify-content:flex-end}
+  .avatar{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:13px;font-weight:900;flex-shrink:0}
+  .avatar.bot{background:var(--panel);border:1px solid var(--border)}
+  .avatar.user{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white}
+  .bubble{max-width:min(680px, 78%);padding:13px 14px;border-radius:16px;font-size:13px;line-height:1.6;box-shadow:0 2px 10px rgba(15,23,42,.05);position:relative;word-break:break-word}
+  .bubble.bot{background:var(--panel);border:1px solid var(--border);border-bottom-left-radius:6px}
+  .bubble.user{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;border-bottom-right-radius:6px;box-shadow:0 8px 18px rgba(124,92,255,.22)}
+  .bubble small{opacity:.75;font-size:11px;display:block;margin-top:6px}
+  .bubble.bot small{color:var(--muted)}
+  .bubble-actions{position:absolute;top:-10px;right:10px;display:flex;gap:4px;background:white;border:1px solid var(--border);border-radius:999px;padding:3px;box-shadow:0 4px 12px rgba(15,23,42,.1);opacity:0;transform:translateY(4px);transition:.15s;pointer-events:none}
+  .msg-row:hover .bubble-actions{opacity:1;transform:none;pointer-events:auto}
+  .bubble-actions button{width:24px;height:24px;border-radius:999px;border:none;background:var(--panel-2);display:grid;place-items:center;font-size:11px;cursor:pointer}
+  .bubble-actions button:hover{background:var(--primary);color:white}
+  .bubble-actions button.danger:hover{background:var(--danger)}
+  .bubble-text{max-height:none;overflow:visible;padding-right:0}
+  .bubble-text::-webkit-scrollbar{width:6px}
+  .bubble-text::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px}
+  .bubble-text::-webkit-scrollbar-thumb:hover{background:#94a3b8}
+  .msg-edit{width:100%;min-height:60px;resize:vertical;padding:10px;border-radius:10px;border:1px solid var(--primary);font-size:13px;font-family:inherit}
+  .edit-actions{display:flex;gap:8px;margin-top:8px}
+  .typing{display:inline-flex;gap:4px;align-items:center;padding:12px 14px;background:white;border:1px solid var(--border);border-radius:16px;border-bottom-left-radius:6px}
+  .typing i{width:6px;height:6px;border-radius:50%;background:var(--primary);animation:bounce 1s infinite}
+  .typing i:nth-child(2){animation-delay:.15s;background:#2ec5ff}
+  .typing i:nth-child(3){animation-delay:.3s;background:var(--primary-2)}
+  @keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.45}40%{transform:translateY(-4px);opacity:1}}
+  /* Composer */
+  .composer{padding:12px 14px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-top:1px solid var(--border);flex-shrink:0}
+  .composer-inner{max-width:860px;margin:0 auto;display:flex;gap:10px;align-items:flex-end;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:8px;box-shadow:var(--shadow)}
+  .composer-inner:focus-within{border-color:rgba(124,92,255,.35);box-shadow:0 0 0 4px rgba(124,92,255,.10)}
+  .icon-btn{width:36px;height:36px;border-radius:10px;background:#f8fafc;border:1px solid var(--border);display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+  .icon-btn:hover{background:white;color:var(--text)}
+  .input{flex:1;max-height:120px;min-height:36px;resize:none;outline:none;border:none;background:transparent;font-size:13px;font-weight:600;color:var(--text);padding:8px 4px;line-height:1.5}
+  .input::placeholder{color:#94a3b8}
+  .send{width:38px;height:38px;border-radius:11px;border:none;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;display:grid;place-items:center;cursor:pointer;box-shadow:0 6px 14px rgba(124,92,255,.25);flex-shrink:0}
+  .send:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+  .composer-hint{max-width:860px;margin:8px auto 0;display:flex;justify-content:space-between;gap:10px;font-size:11px;color:var(--muted)}
+  /* Export menu */
+  .export-menu{position:absolute;top:calc(100% + 6px);left:0;right:0;background:white;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-lg);z-index:20;overflow:hidden;display:none}
+  .export-menu.show{display:block;animation:fade .15s ease}
+  .export-opt{width:100%;text-align:left;padding:10px 12px;border:none;background:white;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px}
+  .export-opt:hover{background:var(--panel-2)}
+
+  /* Page Loader — overlay elegante */
+  .page-loader{position:fixed;inset:0;background:rgba(243,245,249,.96);backdrop-filter:blur(8px);display:grid;place-items:center;z-index:9999;transition:opacity .5s ease, visibility .5s;animation:autoHideLoader 0s 3.5s forwards}
+  .page-loader.hidden{opacity:0;visibility:hidden;pointer-events:none;animation:none}
+  @keyframes autoHideLoader{to{opacity:0;visibility:hidden;pointer-events:none}}
+  .loader-card{display:flex;flex-direction:column;align-items:center;gap:16px;padding:28px 32px;background:white;border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg)}
+  .loader-spinner{width:40px;height:40px;border:3px solid #e8ecf3;border-top-color:var(--primary);border-right-color:#2ec5ff;border-radius:50%;animation:spin .8s linear infinite}
+  .loader-text{font-size:13px;font-weight:800;color:var(--muted);letter-spacing:.04em}
+  .loader-sub{font-size:11px;color:#94a3b8}
+
+
+  /* Mejoras de diseño — más cálido y minimal */
+  .header{height:60px;padding:0 18px}
+  .brand h1{font-size:15px}
+  .side-top{padding:14px}
+  .chat-item{border-radius:14px}
+  .chat-item.active{background:linear-gradient(135deg,rgba(124,92,255,.08),rgba(46,197,255,.06));border-color:rgba(124,92,255,.18)}
+  .bubble{border-radius:18px}
+  .bubble.user{border-radius:18px 18px 6px 18px}
+  .bubble.bot{border-radius:18px 18px 18px 6px}
+  .composer-inner{border-radius:18px}
+  .btn{border-radius:14px}
+  .empty-card{border-radius:20px}
+  .export-menu{border-radius:14px}
+  .icon-btn{border-radius:10px}
+  /* Suavizar fondos */
+  .chat-main{background: radial-gradient(700px 320px at 50% 0%, rgba(124,92,255,.05), transparent 65%), var(--bg)}
+  .chat-list{gap:8px}
+
+  #alarmMenu2.show{display:flex !important}
+  /* Scroll de página — botón flotante arriba */
+  #pageScrollTop{position:fixed;bottom:20px;right:20px;width:42px;height:42px;border-radius:50%;background:white;border:1px solid var(--border);box-shadow:0 8px 22px rgba(15,23,42,.16);display:grid;place-items:center;cursor:pointer;color:var(--primary);font-size:16px;font-weight:900;opacity:0;transform:translateY(8px) scale(.96);pointer-events:none;transition:.2s;z-index:40}
+  #pageScrollTop.show{opacity:1;transform:none;pointer-events:auto}
+  #pageScrollTop:hover{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;border-color:transparent}
+
+  /* Descarga mensajes — reemplaza caja */
+  .messages-full-box{margin:14px 16px;background:white;border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);overflow:visible}
+  .messages-full-head{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,#ffffff,#fbfcff)}
+  .messages-full-head h3{font-size:12px;font-weight:900}
+  .messages-full-list{padding:12px;display:flex;flex-direction:column;gap:8px;overflow:visible}
+  .full-msg{padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#f8fafc;font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;overflow:visible}
+  .full-msg.user{background:linear-gradient(135deg,rgba(124,92,255,.08),rgba(46,197,255,.06))}
+  .full-msg.bot{background:white}
+
+  /* SCROLL PÁGINA + CHAT — ambos con scroll independiente y visible */
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/frontend/llm-config.js"></script>
+<script>'use strict';
+
+// === WEBSOCKET LANGCHAIN — nuevo-chat ===
+let _lcWS2=null, _lcT2=0;
+function connectLangChainWS2(){
+  const dot=document.getElementById('wsLangchainDot2'), txt=document.getElementById('wsLangchainText2');
+  const proto=location.protocol==='https:'?'wss://':'ws://';
+  const savedBackend = localStorage.getItem('backendUrl') || new URLSearchParams(location.search).get('backend') || '';
+  const derivedHosts=[];
+  if(savedBackend){ try{ const u=new URL(savedBackend); derivedHosts.push(u.host);}catch(e){ derivedHosts.push(savedBackend.replace(/^https?:\/\//,'').replace(/\/$/,'') ); } }
+  if(location.host && location.protocol!=='file:') derivedHosts.push(location.host);
+  derivedHosts.push('localhost:8000','127.0.0.1:8000','localhost:8010','127.0.0.1:8010');
+  const hosts=[...new Set(derivedHosts)];
+  let hi=0;
+  function tryC(){
+    if(_lcWS2 && _lcWS2.readyState===WebSocket.OPEN) return;
+    const url=proto+hosts[hi]+'/ws/langchain';
+    try{ _lcWS2=new WebSocket(url);}catch(e){ hi=(hi+1)%hosts.length; setTimeout(tryC,900); return;}
+    if(dot) dot.style.background='#f59e0b';
+    if(txt) txt.textContent='conectando…';
+    _lcWS2.onopen=()=>{ _lcT2=0; if(dot){dot.style.background='#10b981';dot.style.boxShadow='0 0 0 6px rgba(16,185,129,.18)';} if(txt) txt.textContent='LangChain ✓'; };
+    _lcWS2.onmessage=(ev)=>{
+      try{
+        const d=JSON.parse(ev.data);
+        if(d.type==='langchain_status'){
+          const lc=d.langchain||{};
+          const has=lc.has_langchain;
+          if(dot){ dot.style.background=has?'#10b981':'#94a3b8'; }
+          if(txt) txt.textContent=has?'LangChain ✓':`LangChain InMemory · ${lc.sessions||0} ses`;
+        }
+      }catch(e){}
+    };
+    _lcWS2.onclose=()=>{ if(dot){dot.style.background='#ef4444';} if(txt) txt.textContent='desconectado'; _lcT2++; if(_lcT2>4 && hi < hosts.length-1){hi++; _lcT2=0;} setTimeout(tryC, Math.min(1500*_lcT2+800,8000)); };
+    _lcWS2.onerror=()=>{ try{_lcWS2.close();}catch(e){} };
+  }
+  tryC();
+  setTimeout(async()=>{
+    if(_lcWS2 && _lcWS2.readyState===WebSocket.OPEN) return;
+    try{ const r=await fetch(proto+hosts[0]+'/api/langchain/status').then(x=>x.json()); if(r&&r.langchain && txt) txt.textContent=`LangChain (HTTP) · ${r.langchain.sessions||0}`; }catch(e){}
+  },5500);
+}
+function configureBackend2(){ const cur=localStorage.getItem('backendUrl')||(location.protocol+'//'+location.host); const url=prompt('URL backend FastAPI',cur); if(url){localStorage.setItem('backendUrl',url); location.reload();} }
+document.addEventListener('DOMContentLoaded', connectLangChainWS2);
+setTimeout(connectLangChainWS2,700);
+
+</script>
+  <noscript><meta http-equiv="refresh" content="2;url=interfaz.html"></noscript>
+</head>
+<body>
+
+  <div id="pageLoader" class="page-loader" aria-hidden="true" data-redirect="">
+    <div class="loader-card">
+      <div style="position:relative;width:48px;height:48px;display:grid;place-items:center">
+        <div class="loader-spinner" style="position:absolute;inset:0;width:48px;height:48px"></div>
+        <div style="width:40px;height:40px;border-radius:12px;background:white;border:1px solid #e2e8f0;display:grid;place-items:center;overflow:hidden;padding:3px"><img src="favicon.png" alt="Logo" style="width:100%;height:100%;object-fit:contain"></div>
+      </div>
+      <div style="text-align:center">
+        <div class="loader-text">Cargando tus chats</div>
+        <div class="loader-sub">Un momento…</div>
+      </div>
+    </div>
+  </div>
+<script>'use strict';
+
+/* LOADER — ocultado inmediato e independiente (no depende del bundle principal) */
+(function(){
+  let pl=document.getElementById('pageLoader');
+  if(!pl) return;
+  let redirectUrl=(pl.getAttribute('data-redirect')||'').trim() || new URLSearchParams(location.search).get('redirect') || new URLSearchParams(location.search).get('to') || '';
+  // permitir ?redirect=interfaz.html o ?to=nuevo-chat.html
+  function hide(){
+    if(pl.classList.contains('hidden')) return;
+    pl.classList.add('hidden');
+    setTimeout(function(){
+      try{ pl.style.display='none'; pl.remove(); }catch(e){ try{pl.style.display='none';}catch(e2){} }
+      if(redirectUrl){
+        try{
+          let target=redirectUrl;
+          if(!/^https?:\/\//.test(target)){
+            // resolver relativo al HTML actual
+            // si termina en .html, ir directo; si no, añadir .html
+            target=new URL(target, location.href).href;
+          }
+          if(target!==location.href) location.href=target;
+        }catch(e){}
+      }
+    }, 620);
+  }
+  // ocultar tras 1s mínimo, si el usuario hace clic lo oculta ya
+  setTimeout(hide, 1200);
+  setTimeout(hide, 3200); // seguridad
+  pl.addEventListener('click', hide);
+  // Escape también
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') hide(); });
+  // Si la página ya cargó y el loader sigue, forzar al window load
+  window.addEventListener('load', function(){ setTimeout(hide, 400); });
+})();
+</script>
+
+  <header class="header">
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="btn btn-ghost btn-sm" onclick="document.querySelector('.sidebar').classList.toggle('mobile-open')" style="display:none" id="menuBtn">☰</button>
+      <div class="brand">
+        <a href="/" class="logo-wrap" id="logoWrap" title="Ir a página principal" style="text-decoration:none;cursor:pointer">
+          <div class="logo-spinner"></div>
+          <div class="logo" aria-hidden="true" style="background:white;border:1px solid var(--border);overflow:hidden;padding:2px;display:grid;place-items:center">
+            <img src="favicon.png" alt="Logo asistente" style="width:100%;height:100%;object-fit:contain;display:block;border-radius:8px">
+          </div>
+        </a>
+        <div><h1>Nuevo Chat</h1><p>Tus conversaciones</p></div>
+      </a>
+      <span id="dbBadge" class="badge local">● Listo</span>
+    </div>
+    <div class="header-actions">
+      <span class="status-pill" id="wsLangchainPill2" style="padding:6px 10px;font-size:11px;cursor:pointer" title="Monitoreo LangChain WS — clic para configurar" onclick="configureBackend2()"><span id="wsLangchainDot2" style="width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block;box-shadow:0 0 0 5px rgba(148,163,184,.16)"></span> <b id="wsLangchainText2" style="margin-left:4px">LangChain …</b></span>
+      <button class="btn btn-ghost btn-sm" id="soundToggle2" onclick="toggleSound()" title="Sonidos">🔊</button>
+      <div style="position:relative">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('alarmMenu2').classList.toggle('show'); event.stopPropagation()" title="Alarmas tipo celular">🔔</button>
+        <div id="alarmMenu2" style="position:absolute;top:calc(100% + 8px);right:0;background:white;border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg);padding:8px;display:none;flex-direction:column;gap:6px;z-index:30;min-width:170px">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--muted);padding:4px 6px 2px">ALARMAS CELULAR</div>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="playAlarm('alarm_phone',3);document.getElementById('alarmMenu2').classList.remove('show')">📱 Teléfono</button>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="playAlarm('alarm_classic',3);document.getElementById('alarmMenu2').classList.remove('show')">⏰ Clásica</button>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="playAlarm('alarm_urgent',2);document.getElementById('alarmMenu2').classList.remove('show')">🚨 Urgente</button>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="playAlarm('alarm_soft',2);document.getElementById('alarmMenu2').classList.remove('show')">🔔 Suave</button>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="playAlarm('alarm_nokia',2);document.getElementById('alarmMenu2').classList.remove('show')">🎵 Nokia</button>
+          <div style="height:1px;background:var(--border);margin:2px 0"></div>
+          <div style="padding:6px 6px 2px;display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px">🔊</span>
+            <input type="range" id="soundVolume2" min="0" max="100" value="75" oninput="setVolume(this.value)" style="flex:1;accent-color:var(--primary);height:4px">
+            <span id="soundVolumeLabel2" style="font-size:11px;font-weight:700;min-width:32px;text-align:right">75%</span>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start;color:var(--danger)" onclick="stopAlarms();showToast('Alarmas detenidas','info');document.getElementById('alarmMenu2').classList.remove('show')">⏹️ Detener</button>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('soundConfigModal').style.display='flex'" title="Configuración completa de sonidos y alertas">⚙️ Sonidos</button>
+      <select id="modelSelect" class="select"></select>
+      <a href="interfaz.html" class="btn btn-ghost btn-sm" style="text-decoration:none">← Interfaz</a>
+      <button class="btn btn-primary btn-sm" onclick="newChat()">＋ Nuevo Chat</button>
+    </div>
+  </header>
+
+  <div class="app">
+    <aside class="sidebar">
+      <div class="side-top">
+        <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="newChat()">＋ Nuevo Chat</button>
+        <div class="side-search"><span>🔍</span><input id="searchInput" placeholder="Buscar chats…" oninput="renderList()"></div>
+        <div style="display:flex;gap:6px">
+          <div style="position:relative;flex:1">
+            <button class="btn btn-ghost btn-sm" style="width:100%" onclick="toggleExportMenu()" id="exportBtn">⬇️ Exportar ▾</button>
+            <div id="exportMenu" class="export-menu">
+              <button class="export-opt" onclick="exportChats('pdf'); toggleExportMenu()">📄 PDF</button>
+              <button class="export-opt" onclick="exportChats('txt'); toggleExportMenu()">📃 TXT</button>
+              <button class="export-opt" onclick="exportChats('md'); toggleExportMenu()">📝 MD</button>
+              <button class="export-opt" onclick="exportChats('doc'); toggleExportMenu()">📝 DOC</button>
+              <button class="export-opt" onclick="exportChats('json'); toggleExportMenu()">🧾 JSON</button>
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="flex:1" onclick="clearAll()">🗑️ Borrar</button>
+        </div>
+      </div>
+      <div class="chat-list" id="chatList" title="Scroll independiente por lista de chats"></div>
+      <button id="scrollChatsBtn" class="scroll-chats" onclick="scrollChatsToTop()" title="Ir arriba">↑</button>
+      <div class="side-footer">
+        <div class="tip">💬 Tus chats se guardan automáticamente. Podés editar el título o los mensajes cuando quieras.</div>
+        <a href="interfaz.html#view-llm" class="btn btn-ghost btn-sm" style="text-decoration:none;justify-content:center">⚙️ API LLM</a>
+      </div>
+    </aside>
+
+    <main class="chat-main">
+      <div class="chat-header-mini" id="chatHeaderMini" style="display:none">
+        <div class="chat-title" id="chatTitleBox">
+          <strong id="chatTitleText" onclick="startEditTitle()" title="Click para editar título"></strong>
+          <span id="chatTitleMeta" style="font-size:11px;color:var(--muted)"></span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="startEditTitle()">✏️ Editar</button>
+          <button class="btn btn-ghost btn-sm" onclick="deleteActiveChat()">🗑️ Eliminar chat</button>
+        </div>
+      </div>
+
+      <div class="chat-scroll" id="chatScroll">
+        <button id="loadMoreBtn" class="load-more" onclick="loadMore()">↑ Cargar mensajes anteriores</button>
+        <div class="empty" id="emptyState">
+          <div class="empty-card">
+            <div style="width:48px;height:48px;border-radius:14px;background:white;border:1px solid #e2e8f0;display:grid;place-items:center;margin:0 auto 10px;overflow:hidden;padding:4px"><img src="favicon.png" alt="Logo" style="width:100%;height:100%;object-fit:contain"></div>
+            <h2>Tus conversaciones, siempre a mano</h2>
+            <p>Empezá una nueva conversación o retomá donde dejaste. Podés renombrar tus chats y editar mensajes.</p>
+            <div class="suggestions">
+              <div class="suggestion" onclick="quick('Resume el último documento en 5 puntos')"><strong>📄 Resumir</strong><span>Resume en 5 puntos</span></div>
+              <div class="suggestion" onclick="quick('Busca cláusulas de penalidad')"><strong>🔍 Buscar</strong><span>Cláusulas de penalidad</span></div>
+              <div class="suggestion" onclick="quick('Genera informe ejecutivo')"><strong>📊 Informe</strong><span>Ejecutivo gerencia</span></div>
+              <div class="suggestion" onclick="quick('¿Qué documentos tengo?')"><strong>🗂️ Inventario</strong><span>Lista indexados</span></div>
+            </div>
+            <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+              <span style="font-size:11px;padding:6px 10px;border-radius:999px;background:#f1f5f9;border:1px solid var(--border)">Tus chats, ordenados</span>
+              <span style="font-size:11px;padding:6px 10px;border-radius:999px;background:#f5f3ff;border:1px solid #ddd6fe;color:#6d28d9">Asistente <b id="emptyLLM">listo</b></span>
+            </div>
+          </div>
+        </div>
+        <div id="messagesAnchor"></div>
+      </div>
+
+      <button id="scrollBottomBtn" class="scroll-bottom" onclick="scrollToBottom()" title="Ir abajo" aria-label="Ir al último mensaje">↓</button>
+      
+      <div class="panel" id="downloadMessagesPanel" style="margin:12px 16px">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,#ffffff,#fbfcff);border-radius:14px 14px 0 0">
+          <div>
+            <h3 style="font-size:12px;font-weight:900">⬇️ Descargar mensajes</h3>
+            <p style="font-size:11px;color:var(--muted)">Exporta este chat</p>
+          </div>
+          <span class="tag" id="downloadCountNuevo">0 mensajes</span>
+        </div>
+        <div style="padding:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="downloadNuevo('json')">🧾 JSON</button>
+          <button class="btn btn-ghost btn-sm" onclick="downloadNuevo('txt')">📃 TXT</button>
+          <button class="btn btn-ghost btn-sm" onclick="downloadNuevo('md')">📝 MD</button>
+          <button class="btn btn-ghost btn-sm" onclick="downloadNuevo('html')">🖨️ HTML/PDF</button>
+        </div>
+      </div>
+      <div class="composer"><div class="composer-inner">
+          <button class="icon-btn" title="Adjuntar (PDF/DOCX/XLSX/PPT/CSV/TXT/MD)" onclick="document.getElementById('fileIn').click()">📎</button>
+          <input id="fileIn" type="file" hidden accept=".pdf,.docx,.doc,.xlsx,.xls,.ppt,.pptx,.csv,.txt,.md,.png,.jpg,.jpeg" onchange="handleFile(this.files[0])">
+          <textarea id="msgInput" class="input" rows="1" placeholder="Escribe tu mensaje… (Enter envía, Shift+Enter salto)" onkeydown="handleKey(event)" oninput="autoGrow(this)"></textarea>
+          <button id="sendBtn" class="send" onclick="send()" title="Enviar">➤</button>
+        </div>
+        <div class="composer-hint">
+          <span id="composerInfo">Asistente listo</span>
+          <span id="statusHint">Escribí tu mensaje y presioná Enter</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+<!-- Modal Config Sonidos (nuevo-chat) -->
+<div id="soundConfigModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(6px);z-index:90;align-items:center;justify-content:center;padding:16px" onclick="if(event.target===this) this.style.display='none'">
+  <div style="background:white;border-radius:20px;box-shadow:0 24px 64px rgba(15,23,42,.18);max-width:640px;width:100%;max-height:90vh;overflow:auto;border:1px solid var(--border)">
+    <div style="padding:18px 18px 0;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div><h2 style="font-size:16px;font-weight:900;margin:0">🔊 Sonidos & Alertas</h2><p style="font-size:12px;color:var(--muted);margin:2px 0 0">Configura volumen y alarmas — se guarda automáticamente</p></div>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('soundConfigModal').style.display='none'">✕</button>
+    </div>
+    <div style="padding:16px;display:grid;gap:14px">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:800;padding:12px;border:1px solid var(--border);border-radius:12px;background:#f8fafc">
+        <input type="checkbox" id="cfgSoundEnabled" onchange="setSoundEnabled(this.checked)" style="width:18px;height:18px;accent-color:var(--primary)">
+        <span>🔊 Sonidos activados</span><span id="cfgSoundStatus" class="tag" style="margin-left:auto;background:var(--success);color:white">● Activado</span>
+      </label>
+      <div style="background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:14px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.07em;color:var(--muted)">VOLUMEN MAESTRO — <span id="cfgVolLabel">75%</span></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px"><span>🔈</span><input type="range" id="cfgMasterVol" min="0" max="100" value="75" oninput="setVolume(this.value)" style="flex:1;accent-color:var(--primary)"><span>🔊</span><button class="btn btn-primary btn-sm" onclick="playSound('info')">▶️</button></div>
+      </div>
+      <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.07em;color:#9a3412">ALERTAS — <span id="cfgAlertVolLabel">90%</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+          <label style="font-size:12px;font-weight:700">Alarma<select id="cfgDefaultAlarm" onchange="setAlertConfig({defaultAlarm:this.value})" style="width:100%;margin-top:6px;padding:8px;border-radius:10px;border:1px solid var(--border)"><option value="alarm_phone">📱 Teléfono</option><option value="alarm_classic">⏰ Clásica</option><option value="alarm_urgent">🚨 Urgente</option><option value="alarm_soft">🔔 Suave</option><option value="alarm_nokia">🎵 Nokia</option></select></label>
+          <label style="font-size:12px;font-weight:700">Repeticiones<input type="number" id="cfgLoops" min="1" max="6" value="3" onchange="setAlertConfig({loops:parseInt(this.value)})" style="width:100%;margin-top:6px;padding:8px;border-radius:10px;border:1px solid var(--border)"></label>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="range" id="cfgAlertVol" min="0" max="100" value="90" oninput="setAlertVolume(this.value)" style="flex:1;accent-color:#f59e0b"><span id="cfgAlertVolLabel" style="font-weight:800;min-width:32px;text-align:right">90%</span></div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer;font-weight:700"><input type="checkbox" id="cfgVibration" onchange="setAlertConfig({vibration:this.checked})" style="accent-color:var(--primary)"> 📳 Vibración móvil</label>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-primary btn-sm" onclick="playAlarm(document.getElementById('cfgDefaultAlarm').value, parseInt(document.getElementById('cfgLoops').value||3))">▶️ Probar</button><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="stopAlarms()">⏹️ Detener</button></div>
+      </div>
+      <div style="background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:14px">
+        <div style="font-size:11px;font-weight:800;letter-spacing:.07em;color:var(--muted)">PROBAR SONIDOS</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:10px" id="soundTestGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/frontend/analyzer.js"></script>
+<script src="/frontend/processor.js"></script>
+<script src="/frontend/response.js"></script>
+<script src="/frontend/app.js"></script>
+<script src="/frontend/sounds.js"></script>
+<script src="/frontend/chat.js"></script>
+  <button id="pageScrollTop" onclick="window.scrollTo({top:0,behavior:'smooth'}); playSound('info')" title="Ir arriba de la página" aria-label="Ir arriba">↑</button>
+</body>
+</html>
