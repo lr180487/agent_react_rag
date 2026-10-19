@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente asistente base de conocimiento — Modo Claro • Loader Logotipo</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="favicon.png">
+<style>
+  :root{
+    --bg:#f3f5f9; --panel:#ffffff; --panel-2:#f1f4f8; --border:#e2e8f0; --border-strong:#d8e0ec; --muted:#64748b; --text:#0f172a;
+    --primary:#7c5cff; --primary-2:#5a36ff; --success:#10b981; --warning:#f59e0b; --danger:#ef4444;
+    --radius:16px; --radius-sm:10px; --shadow:0 10px 24px rgba(15,23,42,.06), 0 1px 3px rgba(15,23,42,.06);
+    --shadow-lg:0 18px 40px rgba(15,23,42,.10);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+  /* Header claro */
+  .header{height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.92);backdrop-filter:blur(10px);position:sticky;top:0;z-index:20;box-shadow:0 1px 0 rgba(15,23,42,.04)}
+  .brand{display:flex;align-items:center;gap:12px}
+  /* Logo + Spinner loader — 5 segundos al cargar */
+  .logo-wrap{position:relative;width:44px;height:44px;display:grid;place-items:center;flex-shrink:0}
+  .logo{width:36px;height:36px;border-radius:11px;background:white;border:1px solid var(--border);display:grid;place-items:center;overflow:hidden;padding:2px;box-shadow:0 4px 12px rgba(15,23,42,.08);position:relative;z-index:2;font-size:18px}
+  .logo-spinner{position:absolute;inset:0;width:44px;height:44px;border-radius:14px;border:3px solid #e8ecf3;border-top-color:var(--primary);border-right-color:#2ec5ff;z-index:1;opacity:0;visibility:hidden;transition:opacity .25s}
+  .logo-spinner::after{content:"";position:absolute;inset:4px;border-radius:11px;border:1px dashed rgba(124,92,255,.18)}
+  .logo-wrap.loading .logo-spinner, .logo-wrap.initial-loading .logo-spinner{opacity:1;visibility:visible;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* Estado loading más rápido al probar / enviar */
+  .logo-wrap.loading .logo-spinner{animation-duration:.65s;border-top-color:var(--primary);box-shadow:0 0 0 6px rgba(124,92,255,.12)}
+  .logo-wrap.loading .logo, .logo-wrap.initial-loading .logo{animation:pulseLogo .9s ease infinite}
+  @keyframes pulseLogo{0%,100%{transform:scale(1)}50%{transform:scale(.96)}}
+  .brand h1{font-size:15px;font-weight:800;letter-spacing:.2px;color:var(--text)}
+  .brand p{font-size:11px;color:var(--muted);margin-top:1px;font-weight:600}
+  .header-actions{display:flex;align-items:center;gap:10px}
+  .status-pill{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:var(--panel);border:1px solid var(--border);font-size:12px;font-weight:700;box-shadow:0 1px 2px rgba(15,23,42,.06)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 0 6px rgba(16,185,129,.14);animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+  .btn{appearance:none;border:none;cursor:pointer;font-weight:700;font-size:13px;padding:10px 16px;border-radius:999px;transition:.15s;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+  .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;box-shadow:0 8px 20px rgba(124,92,255,.28)}
+  .btn-primary:hover{transform:translateY(-1px);filter:brightness(1.05)}
+  .btn-ghost{background:var(--panel);border:1px solid var(--border);color:var(--text);box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  .btn-ghost:hover{background:var(--panel-2);border-color:var(--border-strong)}
+  .btn-sm{padding:7px 12px;font-size:12px}
+  /* Layout */
+  .layout{display:grid;grid-template-columns:260px 1fr;flex:1;min-height:calc(100vh - 64px);overflow:visible;min-height:0}
+  .sidebar{background:var(--panel);border-right:1px solid var(--border);padding:16px;display:flex;flex-direction:column;gap:14px;overflow:visible}
+  .side-title{font-size:11px;letter-spacing:.12em;color:var(--muted);font-weight:800;padding:8px 10px 4px}
+  .nav{display:flex;flex-direction:column;gap:6px}
+  .nav-btn{width:100%;text-align:left;padding:12px 12px;border-radius:12px;border:1px solid transparent;background:transparent;color:var(--muted);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:.15s}
+  .nav-btn:hover{background:var(--panel-2);color:var(--text)}
+  .nav-btn.active{background:linear-gradient(135deg,rgba(124,92,255,.10),rgba(46,197,255,.08));border-color:rgba(124,92,255,.22);color:var(--text);box-shadow:0 4px 12px rgba(124,92,255,.08)}
+  .nav-btn .icon{width:28px;height:28px;border-radius:8px;background:var(--panel-2);border:1px solid var(--border);display:grid;place-items:center;font-size:15px}
+  .nav-btn.active .icon{background:var(--primary);color:white;border-color:transparent}
+  .badge{margin-left:auto;background:var(--primary);color:white;font-size:10px;padding:3px 7px;border-radius:999px;font-weight:900;letter-spacing:.3px}
+  .badge-new{background:var(--warning);color:white}
+  .side-footer{margin-top:auto;padding:12px;border-radius:12px;background:#f8f9ff;border:1px solid #e6e8ff}
+  .side-footer h4{font-size:12px;margin-bottom:6px;color:var(--text)}
+  .side-footer p{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:10px}
+  /* Main claro */
+  .main{padding:22px 22px 30px;overflow:visible;display:flex;flex-direction:column;min-height:0;background:
+    radial-gradient(700px 320px at 15% 0%, rgba(124,92,255,.08), transparent 60%),
+    radial-gradient(700px 320px at 88% 0%, rgba(46,197,255,.07), transparent 60%),
+    var(--bg)}
+  .top-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+  .mini-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow)}
+  .mini-card h3{font-size:11px;letter-spacing:.08em;color:var(--muted)}
+  .mini-card strong{font-size:18px;color:var(--text)}
+  .mini-card span{font-size:11px;color:var(--muted)}
+  .mini-card .bar{height:6px;border-radius:999px;background:#eef2f7;overflow:hidden}
+  .mini-card .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--primary),#2ec5ff);border-radius:999px}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .panel-head{padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(180deg,#ffffff, #fcfdff)}
+  .panel-head h2{font-size:14px;font-weight:800;display:flex;align-items:center;gap:10px;color:var(--text)}
+  .panel-head p{font-size:12px;color:var(--muted);margin-top:2px}
+  .panel-body{padding:18px}
+  .grid2{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;margin-top:18px}
+  @media(max-width:1100px){.layout{grid-template-columns:1fr}.sidebar{flex-direction:row;overflow:auto}.nav{flex-direction:row}.side-footer{display:none}.top-cards{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}
+  @media(max-width:640px){.top-cards{grid-template-columns:1fr}}
+  /* Views */
+  .view{display:none;overflow:visible;padding-right:0}
+  /* scroll eliminado — vista sin scroll independiente */
+  .view.active{display:block;animation:fade .2s ease;overflow:visible}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  /* Forms */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .form-grid.full{grid-template-columns:1fr}
+  .field{display:flex;flex-direction:column;gap:7px}
+  .field label{font-size:11px;font-weight:800;letter-spacing:.07em;color:var(--muted);text-transform:uppercase}
+  .input, .select{width:100%;padding:12px 13px;border-radius:10px;background:#f8fafc;border:1px solid var(--border);color:var(--text);font-size:13px;font-weight:600;outline:none;transition:.15s}
+  .input:focus,.select:focus{border-color:rgba(124,92,255,.45);box-shadow:0 0 0 4px rgba(124,92,255,.12);background:#fff}
+  .input::placeholder{color:#94a3b8}
+  .hint{font-size:11px;color:var(--muted);line-height:1.4}
+  .input-wrap{position:relative}
+  .eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:var(--panel);border:1px solid var(--border);width:32px;height:32px;border-radius:8px;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+  .eye:hover{background:var(--panel-2)}
+  .providers{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+  @media(max-width:700px){.providers{grid-template-columns:repeat(2,1fr)}.form-grid{grid-template-columns:1fr}}
+  .prov{padding:12px;border-radius:12px;background:#f8fafc;border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px;transition:.15s}
+  .prov:hover{border-color:rgba(124,92,255,.35);background:white;box-shadow:0 4px 14px rgba(15,23,42,.06)}
+  .prov.active{border-color:var(--primary);background:linear-gradient(135deg,rgba(124,92,255,.08),rgba(46,197,255,.06));box-shadow:0 0 0 4px rgba(124,92,255,.10)}
+  .prov-icon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-weight:900;font-size:13px;color:white;flex-shrink:0}
+  .prov h4{font-size:13px;font-weight:800;color:var(--text)}
+  .prov p{font-size:11px;color:var(--muted)}
+  /* LLM Cards */
+  .llm-list{display:flex;flex-direction:column;gap:12px}
+  .llm-card{display:flex;align-items:center;gap:14px;padding:14px;border-radius:14px;background:#f8fafc;border:1px solid var(--border)}
+  .llm-card.active-card{border-color:rgba(16,185,129,.28);background:linear-gradient(135deg,rgba(16,185,129,.06),rgba(46,197,255,.05))}
+  .llm-meta{flex:1;min-width:0}
+  .llm-meta h4{font-size:13px;display:flex;align-items:center;gap:8px;color:var(--text)}
+  .llm-meta p{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tag{font-size:10px;font-weight:900;letter-spacing:.05em;padding:4px 7px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--muted)}
+  .tag.on{color:var(--success);border-color:rgba(16,185,129,.25);background:rgba(16,185,129,.08)}
+  .tag.off{color:var(--muted)}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .icon-btn{width:34px;height:34px;border-radius:9px;background:var(--panel);border:1px solid var(--border);display:grid;place-items:center;cursor:pointer;color:var(--muted);transition:.15s}
+  .icon-btn:hover{color:var(--text);background:var(--panel-2)}
+  .icon-btn.danger:hover{color:white;background:var(--danger);border-color:var(--danger)}
+  /* Upload */
+  .drop{border:1.5px dashed var(--border);border-radius:14px;padding:22px;display:grid;place-items:center;text-align:center;background:#f8fafc;transition:.15s}
+  .drop.drag{background:rgba(124,92,255,.05);border-color:var(--primary)}
+  /* Chat */
+  .chat-box{height:400px;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:14px;padding:16px;background:#ffffff;border:1px solid var(--border);border-radius:18px;scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:#94a3b8 #eef2f7;position:relative;box-shadow:0 4px 18px rgba(15,23,42,.06);
+    background-image:
+      linear-gradient(white, rgba(255,255,255,0)),
+      linear-gradient(rgba(255,255,255,0), white),
+      radial-gradient(farthest-side at 50% 0, rgba(15,23,42,.08), transparent),
+      radial-gradient(farthest-side at 50% 100%, rgba(15,23,42,.08), transparent);
+    background-size: 100% 16px, 100% 16px, 100% 10px, 100% 10px;
+    background-position: center top, center bottom, center top, center bottom;
+    background-repeat: no-repeat;
+    background-attachment: local, local, scroll, scroll;
+    background:
+      linear-gradient(#f8fafc, rgba(248,250,252,0)) center top / 100% 16px no-repeat,
+      linear-gradient(rgba(248,250,252,0), #f8fafc) center bottom / 100% 16px no-repeat,
+      radial-gradient(farthest-side at 50% 0, rgba(15,23,42,.06), transparent) center top / 100% 10px no-repeat,
+      radial-gradient(farthest-side at 50% 100%, rgba(15,23,42,.06), transparent) center bottom / 100% 10px no-repeat;
+    background-attachment: local, local, scroll, scroll;
+  }
+  .chat-box::-webkit-scrollbar{width:12px;height:12px}
+  .chat-box::-webkit-scrollbar-track{background:#eef2f7;border-radius:999px;margin:3px 2px;border:1px solid #e2e8f0}
+  .chat-box::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:999px;border:3px solid #eef2f7;background-clip:content-box;min-height:60px}
+  .chat-box::-webkit-scrollbar-thumb:hover{background:#7c5cff}
+  .chat-box::-webkit-scrollbar-thumb:active{background:var(--primary)}
+  .chat-wrap{position:relative}
+  .scroll-bottom-mini{position:absolute;bottom:14px;right:14px;width:34px;height:34px;border-radius:50%;background:white;border:1px solid var(--border);box-shadow:0 8px 20px rgba(15,23,42,.12);display:grid;place-items:center;cursor:pointer;color:var(--primary);font-size:13px;opacity:0;transform:translateY(6px) scale(.96);pointer-events:none;transition:.2s;z-index:4}
+  .scroll-bottom-mini.show{opacity:1;transform:none;pointer-events:auto}
+  .scroll-bottom-mini:hover{background:var(--primary);color:white;border-color:var(--primary)}
+  .msg{max-width:78%;}
+  .msg .bubble-text{max-height:none;overflow:visible;padding-right:0}
+  /* bubble-text scroll eliminado */
+  #alarmMenu.show{display:flex !important}
+  .msg{max-width:78%;padding:12px 14px;border-radius:14px;font-size:13px;line-height:1.5}
+  .msg.user{align-self:flex-end;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:white;border-bottom-right-radius:4px;box-shadow:0 6px 14px rgba(124,92,255,.22)}
+  .msg.bot{align-self:flex-start;background:var(--panel);border:1px solid var(--border);border-bottom-left-radius:4px;box-shadow:0 2px 8px rgba(15,23,42,.05);max-height:none;overflow:visible}
+  .msg small{opacity:.7;font-size:11px}
+  /* Typing dots */
+  .typing{display:inline-flex;gap:4px;align-items:center;padding:10px 12px;background:white;border:1px solid var(--border);border-radius:14px;border-bottom-left-radius:4px;box-shadow:0 2px 8px rgba(15,23,42,.05)}
+  .typing i{width:6px;height:6px;border-radius:50%;background:var(--primary);animation:bounce 1.1s infinite}
+  .typing i:nth-child(2){animation-delay:.15s;background:#2ec5ff}
+  .typing i:nth-child(3){animation-delay:.30s;background:var(--primary-2)}
+  @keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.45}40%{transform:translateY(-4px);opacity:1}}
+  /* Diagram */
+  .arch{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:11px;font-weight:800}
+  .arch span{padding:8px 10px;border-radius:999px;background:var(--panel);border:1px solid var(--border);box-shadow:0 1px 2px rgba(15,23,42,.04)}
+  .arch i{color:var(--primary)}
+  /* Toast */
+  .toast{position:fixed;bottom:18px;right:18px;background:white;border:1px solid var(--border);padding:12px 14px;border-radius:12px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-lg);transform:translateY(80px);opacity:0;transition:.25s;z-index:50}
+  .toast.show{transform:none;opacity:1}
+
+  /* Page Loader — overlay elegante */
+  .page-loader{position:fixed;inset:0;background:rgba(243,245,249,.96);backdrop-filter:blur(8px);display:grid;place-items:center;z-index:9999;transition:opacity .5s ease, visibility .5s;animation:autoHideLoader 0s 3.5s forwards}
+  .page-loader.hidden{opacity:0;visibility:hidden;pointer-events:none;animation:none}
+  @keyframes autoHideLoader{to{opacity:0;visibility:hidden;pointer-events:none}}
+  .loader-card{display:flex;flex-direction:column;align-items:center;gap:16px;padding:28px 32px;background:white;border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow-lg)}
+  .loader-spinner{width:40px;height:40px;border:3px solid #e8ecf3;border-top-color:var(--primary);border-right-color:#2ec5ff;border-radius:50%;animation:spin .8s linear infinite}
+  .loader-text{font-size:13px;font-weight:800;color:var(--muted);letter-spacing:.04em}
+  .loader-sub{font-size:11px;color:#94a3b8}
+
+
+  /* Mejoras de diseño — más limpio y moderno */
+  .panel{border-radius:18px}
+  .panel-head{background:linear-gradient(180deg,#ffffff,#fbfcff)}
+  .mini-card{border-radius:18px;transition:transform .15s, box-shadow .15s}
+  .mini-card:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(15,23,42,.08)}
+  .nav-btn{border-radius:14px}
+  .btn{border-radius:14px}
+  .input, .select{border-radius:12px}
+  .drop{border-radius:18px;background:#fbfdff}
+  .providers{gap:12px}
+  .prov{border-radius:14px}
+  /* Ocultar info tecnica residual: cualquier code con POST /api */
+
+
+  /* === DESCARGA MENSAJES (reemplaza caja) === */
+  .messages-full-box{margin-top:14px;background:white;border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .messages-full-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,#ffffff,#fbfcff)}
+  .messages-full-head h3{font-size:13px;font-weight:900;display:flex;align-items:center;gap:8px}
+  .messages-full-head span{font-size:11px;color:var(--muted);font-weight:700}
+  .messages-full-list{padding:14px;display:flex;flex-direction:column;gap:10px;overflow:visible}
+  .full-msg{padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:#f8fafc;font-size:13px;line-height:1.6;color:var(--text);white-space:pre-wrap;word-break:break-word;overflow:visible}
+  .full-msg.user{background:linear-gradient(135deg,rgba(124,92,255,.08),rgba(46,197,255,.06));border-color:rgba(124,92,255,.18)}
+  .full-msg.bot{background:white;border-color:var(--border)}
+  .full-msg small{display:block;margin-top:6px;font-size:11px;color:var(--muted)}
+  .full-msg b{color:var(--text)}
+
+  /* === NUEVO: Documentos — grupos y tarjetas === */
+  .doc-group{margin-top:16px}
+  .doc-group-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .doc-group-head h3{font-size:13px;font-weight:900;display:flex;align-items:center;gap:8px;color:var(--text)}
+  .doc-group-head span{font-size:11px;color:var(--muted);font-weight:700}
+  .doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;overflow:visible}
+  @media(max-width:900px){.doc-grid{grid-template-columns:1fr}}
+  .doc-card{background:white;border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;gap:12px;align-items:center;box-shadow:0 2px 10px rgba(15,23,42,.04);overflow:visible;transition:.15s}
+  .doc-card:hover{border-color:rgba(124,92,255,.25);box-shadow:0 6px 18px rgba(15,23,42,.07)}
+  .doc-icon{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;color:white;font-size:18px;flex-shrink:0}
+  .doc-meta{flex:1;min-width:0;overflow:visible}
+  .doc-meta h4{font-size:12.5px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .doc-meta p{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .doc-actions{display:flex;gap:6px;flex-shrink:0}
+  .doc-actions .btn{padding:7px 10px;font-size:12px}
+
+  /* === Modal vista previa === */
+  .doc-preview-overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:100;padding:18px}
+  .doc-preview-overlay.show{display:flex}
+  .doc-preview-card{width:min(920px,96vw);max-height:90vh;background:white;border-radius:18px;border:1px solid var(--border);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden}
+  .doc-preview-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;background:linear-gradient(180deg,#ffffff,#fbfcff)}
+  .doc-preview-head h3{font-size:13px;font-weight:900}
+  .doc-preview-body{padding:16px;overflow:auto}
+  .doc-preview-iframe{width:100%;height:62vh;border:1px solid var(--border);border-radius:12px;background:#f8fafc}
+  .doc-preview-text{white-space:pre-wrap;font-size:13px;line-height:1.6;color:var(--text);background:#f8fafc;border:1px solid var(--border);border-radius:12px;padding:14px}
+
+</style>
+  <noscript><meta http-equiv="refresh" content="2;url=interfaz.html"></noscript>
+</head>
+<body>
+
+  <div id="pageLoader" class="page-loader" aria-hidden="true" data-redirect="">
+    <div class="loader-card">
+      <div style="position:relative;width:48px;height:48px;display:grid;place-items:center">
+        <div class="loader-spinner" style="position:absolute;inset:0;width:48px;height:48px"></div>
+        <div style="width:40px;height:40px;border-radius:12px;background:white;border:1px solid #e2e8f0;display:grid;place-items:center;overflow:hidden;padding:3px"><img src="favicon.png" alt="Logo" style="width:100%;height:100%;object-fit:contain"></div>
+      </div>
+      <div style="text-align:center">
+        <div class="loader-text">Cargando tu espacio</div>
+        <div class="loader-sub">Preparando todo para vos…</div>
+      </div>
+    </div>
+  </div>
+<script src="/frontend/llm-config.js"></script>
+<script>'use strict';
+
+/* LOADER — ocultado inmediato e independiente (no depende del bundle principal) */
+(function(){
+  let pl=document.getElementById('pageLoader');
+  if(!pl) return;
+  let redirectUrl=(pl.getAttribute('data-redirect')||'').trim() || new URLSearchParams(location.search).get('redirect') || new URLSearchParams(location.search).get('to') || '';
+  // permitir ?redirect=interfaz.html o ?to=nuevo-chat.html
+  function hide(){
+    if(pl.classList.contains('hidden')) return;
+    pl.classList.add('hidden');
+    setTimeout(function(){
+      try{ pl.style.display='none'; pl.remove(); }catch(e){ try{pl.style.display='none';}catch(e2){} }
+      if(redirectUrl){
+        try{
+          let target=redirectUrl;
+          if(!/^https?:\/\//.test(target)){
+            // resolver relativo al HTML actual
+            // si termina en .html, ir directo; si no, añadir .html
+            target=new URL(target, location.href).href;
+          }
+          if(target!==location.href) location.href=target;
+        }catch(e){}
+      }
+    }, 620);
+  }
+  // ocultar tras 1s mínimo, si el usuario hace clic lo oculta ya
+  setTimeout(hide, 1200);
+  setTimeout(hide, 3200); // seguridad
+  pl.addEventListener('click', hide);
+  // Escape también
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') hide(); });
+  // Si la página ya cargó y el loader sigue, forzar al window load
+  window.addEventListener('load', function(){ setTimeout(hide, 400); });
+})();
+</script>
+
+  <header class="header">
+    <div class="brand">
+      <a href="/" class="logo-wrap" id="logoWrap" title="Ir a página principal — clic para inicio" style="text-decoration:none;cursor:pointer">
+        <div class="logo-spinner"></div>
+        <div class="logo" aria-hidden="true" style="background:white;border:1px solid var(--border);overflow:hidden;padding:2px;display:grid;place-items:center">
+            <img src="favicon.png" alt="Logo asistente" style="width:100%;height:100%;object-fit:contain;display:block;border-radius:8px">
+          </div>
+      </a>
+      <div>
+        <h1>agente_react_rag</h1>
+        <p>Tus documentos, respuestas al instante</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-sm" id="soundToggle" onclick="toggleSound()" title="Activar/desactivar sonidos">🔊</button>
+      <div style="position:relative">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('alarmMenu').classList.toggle('show'); event.stopPropagation()" title="Alarmas tipo celular">🔔</button>
+        <div id="alarmMenu" style="position:absolute;top:calc(100% + 8px);right:0;background:white;border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg);padding:8px;display:none;flex-direction:column;gap:6px;z-index:30;min-width:170px">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.06em;color:var(--muted);padding:4px 6px 2px">ALARMAS CELULAR</div>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="playAlarm('alarm_phone',3);document.getElementById('alarmMenu').classList.remove('show')">📱 Teléfono</button>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="playAlarm('alarm_classic',3);document.getElementById('alarmMenu').classList.remove('show')">⏰ Clásica</button>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="playAlarm('alarm_urgent',2);document.getElementById('alarmMenu').classList.remove('show')">🚨 Urgente</button>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="playAlarm('alarm_soft',2);document.getElementById('alarmMenu').classList.remove('show')">🔔 Suave</button>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="playAlarm('alarm_nokia',2);document.getElementById('alarmMenu').classList.remove('show')">🎵 Nokia</button>
+          <div style="height:1px;background:var(--border);margin:2px 0"></div>
+          <div style="padding:6px 6px 2px;display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px">🔊</span>
+            <input type="range" id="soundVolume" min="0" max="100" value="75" oninput="setVolume(this.value)" style="flex:1;accent-color:var(--primary);height:4px">
+            <span id="soundVolumeLabel" style="font-size:11px;font-weight:700;min-width:32px;text-align:right">75%</span>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start;color:var(--danger)" onclick="stopAlarms();showToast('Alarmas detenidas','info');document.getElementById('alarmMenu').classList.remove('show')">⏹️ Detener</button>
+        </div>
+      </div>
+      <div class="status-pill" id="globalStatus"><span class="dot"></span> LLM: <b id="globalLLMText" style="margin-left:4px">No configurado</b></div>
+      <div class="status-pill" id="wsLangchainPill" title="Monitoreo LangChain en vivo vía WebSocket — clic para configurar backend" onclick="configureBackend()" style="cursor:pointer"><span id="wsLangchainDot" style="width:8px;height:8px;border-radius:50%;background:#94a3b8;box-shadow:0 0 0 5px rgba(148,163,184,.18);display:inline-block"></span> LangChain: <b id="wsLangchainText" style="margin-left:4px">desconectado</b> <span id="wsLangchainMeta" style="font-size:11px;color:var(--muted);margin-left:6px"></span></div>
+      <button class="btn btn-ghost btn-sm" onclick="switchView('sounds')" title="Configuración de sonidos y alertas">🔊 Sonidos</button>
+      <button class="btn btn-ghost btn-sm" onclick="switchView('llm')">⚙️ Configurar LLM</button>
+      <button class="btn btn-primary btn-sm" onclick="playSound('nuevo'); setTimeout(()=>window.location.href='nuevo-chat.html',180)" title="Ir a página dedicada de chat">💬 Nuevo Chat →</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="side-title">NAVEGACIÓN</div>
+      <nav class="nav">
+        <button class="nav-btn active" data-view="chat" onclick="switchView('chat')"><span class="icon">💬</span> Chat / Consulta</button>
+        <button class="nav-btn" data-view="documents" onclick="switchView('documents')"><span class="icon">📄</span> Documentos <span class="badge" id="docCount">0</span></button>
+        <button class="nav-btn" data-view="rag" onclick="switchView('rag')"><span class="icon">🔍</span> base de conocimiento Search</button>
+        <button class="nav-btn" data-view="llm" onclick="switchView('llm')"><span class="icon">🧠</span> API LLM <span class="badge-new badge">NUEVO</span></button>
+        <button class="nav-btn" data-view="sounds" onclick="switchView('sounds')"><span class="icon">🔊</span> Sonidos & Alertas <span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a">CONFIG</span></button>
+      </nav>
+      
+      <div class="side-footer" style="background:linear-gradient(135deg,#f8f9ff,#f5f3ff);border:1px solid #e6e8ff">
+        <h4>💬 ¿Necesitas ayuda?</h4>
+        <p>Pregunta lo que quieras. Tu asistente entiende tus documentos y te responde al momento.</p>
+        <button class="btn btn-ghost btn-sm" style="width:100%" onclick="switchView('chat')">Ir al chat →</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- Top stats -->
+      <div class="top-cards">
+        <div class="mini-card"><h3>TUS DOCUMENTOS</h3><strong id="statDocs">0 Markdown</strong><span>Listos para consultar</span><div class="bar"><i style="width:68%"></i></div></div>
+        <div class="mini-card"><h3>CONOCIMIENTO</h3><strong id="statChunks">1,248</strong><span>Siempre disponible para vos</span><div class="bar"><i style="width:82%"></i></div></div>
+        <div class="mini-card"><h3>LLM ACTIVO</h3><strong id="statLLM">—</strong><span id="statLLMSub">Configura tu API Key</span><div class="bar"><i id="statLLMBar" style="width:12%;background:var(--muted)"></i></div></div>
+        <div class="mini-card"><h3>RESPUESTAS</h3><strong>~320 ms</strong><span>Rápidas y precisas</span><div class="bar"><i style="width:54%"></i></div></div>
+      </div>
+
+      <!-- LANGCHAIN STATUS WS -->
+      <div class="panel" id="langchainStatusCard" style="margin-bottom:18px">
+        <div class="panel-head">
+          <div>
+            <h2>🧠 LangChain — estado en vivo <span id="lcCardDot" style="width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block;vertical-align:middle;box-shadow:0 0 0 5px rgba(148,163,184,.16)"></span></h2>
+            <p>WebSocket <code>WS /ws/langchain</code> cada 2s · Host: <span id="lcCardHost">—</span> · <span id="lcCardTime" style="color:var(--muted)">—</span></p>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="tag" id="lcCardTag">desconectado</span>
+            <button class="btn btn-ghost btn-sm" onclick="connectLangChainWS()" title="Reconectar WS">🔄 Reconectar</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:16px">
+          <div class="mini-card" style="margin:0"><h3>HAS_LANGCHAIN</h3><strong id="lcHas">—</strong><span id="lcHasSub">core instalado?</span></div>
+          <div class="mini-card" style="margin:0"><h3>SESIONES</h3><strong id="lcSessions">—</strong><span id="lcSessionsSub">memoria activa</span></div>
+          <div class="mini-card" style="margin:0"><h3>MENSAJES</h3><strong id="lcMsgs">—</strong><span id="lcMsgsSub">historia total</span></div>
+          <div class="mini-card" style="margin:0"><h3>STORE</h3><strong id="lcStore" style="font-size:10.5px;line-height:1.3;word-break:break-word">—</strong><span id="lcStoreSub">backend memoria</span></div>
+        </div>
+        <div style="padding:0 16px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span class="tag" id="lcCacheL1">L1 —</span>
+          <span class="tag" id="lcCacheL2">L2 Upstash —</span>
+          <span class="tag" id="lcLLM">LLM —</span>
+          <span class="tag" id="lcAgentTag">ReAct</span>
+          <button class="btn btn-ghost btn-sm" onclick="testLangChainConn()">🧪 Probar HTTP</button>
+          <button class="btn btn-ghost btn-sm" onclick="configureBackend()">⚙️ Backend</button>
+        </div>
+      </div>
+
+      <!-- VIEW: CHAT -->
+      <section id="view-chat" class="view active">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>💬 Chat / Consulta </h2>
+              <p>Conversá de forma natural. Tu asistente entiende el contexto.</p>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="clearChat()">🗑️ Limpiar</button>
+          </div>
+          <div class="panel-body">
+            <div id="llmWarning" style="display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:12px;background:#fffbeb;border:1px solid #fcd34d;margin-bottom:14px">
+              <span style="font-size:18px">⚠️</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:800;color:#92400e">Asistente no conectado</div>
+                <div style="font-size:12px;color:#b45309">Conectá tu asistente para respuestas más completas y precisas.</div>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="switchView('llm')">Configurar ahora →</button>
+            </div>
+            
+                        <div class="chat-wrap" style="position:relative"><div class="chat-box" id="chatBox">
+              <div class="msg bot">¡Hola! Soy tu asistente. Puedo ayudarte con tus documentos y responder tus preguntas.<br><small>Conectá tu asistente para respuestas aún más inteligentes.</small></div>
+            </div>
+              <button id="scrollBottomMini" class="scroll-bottom-mini" onclick="scrollChatToBottom()" title="Ir abajo">↓</button>
+            </div>
+            <!-- Caja de mensajes completos (sin scroll, mensajes íntegros) -->
+            <div class="panel" id="downloadMessagesPanel" style="margin-top:14px">
+              <div class="panel-head" style="padding:12px 14px">
+                <div>
+                  <h2 style="font-size:13px">⬇️ Descargar mensajes</h2>
+                  <p style="font-size:11px;color:var(--muted)">Exporta el historial de este chat en el formato que prefieras</p>
+                </div>
+                <span class="tag" id="downloadCount">0 mensajes</span>
+              </div>
+              <div class="panel-body" style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" onclick="downloadMessages('json')">🧾 JSON</button>
+                <button class="btn btn-ghost btn-sm" onclick="downloadMessages('txt')">📃 TXT</button>
+                <button class="btn btn-ghost btn-sm" onclick="downloadMessages('md')">📝 MD</button>
+                <button class="btn btn-ghost btn-sm" onclick="downloadMessages('html')">🖨️ HTML/PDF</button>
+                <button class="btn btn-ghost btn-sm" onclick="copyMessages()">📋 Copiar</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:12px"><input id="chatInput" class="input" placeholder="Escribe tu consulta… ej: Resume el documento de contratos" onkeydown="if(event.key==='Enter')sendChat()">
+              <button class="btn btn-primary" onclick="sendChat()">Enviar ➤</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+              <button class="btn btn-ghost btn-sm" onclick="quickChat('¿Qué hay en mis documentos?')">¿Qué hay en mis documentos?</button>
+              <button class="btn btn-ghost btn-sm" onclick="quickChat('Busca cláusulas de penalidad')">Busca cláusulas</button>
+              <button class="btn btn-ghost btn-sm" onclick="quickChat('Haz un resumen ejecutivo')">Resumen ejecutivo</button>
+              <button class="btn btn-primary btn-sm" onclick="playSound('nuevo'); setTimeout(()=>window.location.href='nuevo-chat.html',180)">↗ Abrir en página dedicada →</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: DOCUMENTS -->
+      <section id="view-documents" class="view">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>📄 Documentos</h2>
+              <p>Tus archivos, listos para conversar</p>
+            </div>
+            
+          </div>
+          <div class="panel-body">
+                        <div class="drop" id="dropZone">
+              <div style="font-size:28px;margin-bottom:8px">📤</div>
+              <div style="font-weight:800;font-size:13px;color:var(--text)">Arrastra tus archivos aquí</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:4px">PDF, Word, Excel y más — los procesamos por vos</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:8px">
+                <span class="tag">PDF</span><span class="tag">DOCX</span><span class="tag">XLSX</span><span class="tag" style="background:#fef3c7;border-color:#fde68a">PPT</span><span class="tag" style="background:#ecfdf5;border-color:#a7f3d0">CSV</span><span class="tag">TXT</span><span class="tag" style="background:#f5f3ff;border-color:#ddd6fe">MD</span>
+              </div>
+              <button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="document.getElementById('fileIn').click()">Seleccionar archivo</button>
+              <input id="fileIn" type="file" accept=".pdf,.docx,.doc,.xlsx,.xls,.ppt,.pptx,.csv,.txt,.md,.png,.jpg,.jpeg" multiple hidden onchange="handleFiles(this.files)">
+            </div>
+            <!-- Grupo: Documentos subidos -->
+            <div class="doc-group" id="groupUploaded">
+              <div class="doc-group-head">
+                <h3>📁 Documentos subidos <span class="tag" id="uploadedCount">0 archivos</span></h3>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-ghost btn-sm" onclick="clearUploaded()">🗑️ Vaciar</button>
+                  <button class="btn btn-ghost btn-sm" onclick="document.getElementById('fileIn').click()">＋ Agregar</button>
+                </div>
+              </div>
+              <div id="docList" class="doc-grid"></div>
+              <div id="emptyUploaded" style="text-align:center;padding:18px;border:1px dashed var(--border);border-radius:12px;background:#f8fafc;margin-top:8px">
+                <div style="font-size:22px">📭</div>
+                <div style="font-weight:800;margin-top:4px;color:var(--text)">Aún no subiste archivos</div>
+                <div style="font-size:12px;color:var(--muted)">Arrastrá o seleccioná para ver <b>vista previa</b> y <b>descargar</b></div>
+              </div>
+              <div id="fileLoader" style="display:none;align-items:center;gap:10px;justify-content:center;padding:14px;margin-top:12px;border-radius:12px;background:#f8fafc;border:1px solid var(--border)">
+                <div style="width:18px;height:18px;border:2.5px solid #e8ecf3;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite"></div>
+                <span style="font-size:12px;font-weight:700;color:var(--muted)">Procesando archivo… MIME → Parser → Markdown</span>
+              </div>
+            </div>
+            <!-- Grupo: Documentos de prueba -->
+            <div class="doc-group" id="groupTest">
+              <div class="doc-group-head">
+                <h3>🧪 Documentos de prueba <span class="tag">4 ejemplos</span></h3>
+                <span style="font-size:11px;color:var(--muted)">Vista previa y descarga inmediata</span>
+              </div>
+              <div class="doc-grid" id="testDocsGrid"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: base de conocimiento -->
+      <section id="view-rag" class="view">
+        <div class="panel">
+          <div class="panel-head"><div><h2>🔍 base de conocimiento Search</h2><p>Encontrá lo que necesitás dentro de tus documentos</p></div></div>
+          <div class="panel-body">
+            <div style="display:flex;gap:10px">
+              <input id="ragInput" class="input" placeholder="Búsqueda semántica… ej: penalidades por incumplimiento">
+              <button class="btn btn-primary" onclick="doRag()">Buscar</button>
+            </div>
+            <div id="ragResults" style="margin-top:14px;display:flex;flex-direction:column;gap:10px"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: LLM CONFIG — NUEVO -->
+      <section id="view-llm" class="view">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <h2 style="font-size:18px;font-weight:900">🧠 Configuración API LLM</h2>
+          <span class="tag" style="background:#f5f3ff;color:#7c5cff;border-color:#ddd6fe">Listo</span>
+          
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="exportLLM()">⬇️ Exportar .env</button>
+            <button class="btn btn-primary btn-sm" onclick="document.getElementById('llmFormCard').scrollIntoView({behavior:'smooth'})">+ Agregar API</button>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <!-- List -->
+          <div class="panel">
+            <div class="panel-head">
+              <div><h2>🔑 APIs configuradas</h2><p>Elegí cuál usar. Tus claves quedan guardadas de forma segura.</p></div>
+              <span class="tag" id="llmCountTag">0 configuradas</span>
+            </div>
+            <div class="panel-body">
+              <div class="llm-list" id="llmList"></div>
+              <div id="emptyLLM" style="text-align:center;padding:26px;border:1px dashed var(--border);border-radius:12px;margin-top:10px;background:#f8fafc">
+                <div style="font-size:26px">🔐</div>
+                <div style="font-weight:800;margin-top:6px;color:var(--text)">Aún no hay APIs</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:4px">Agrega tu primera API LLM (OpenAI, Gemini, Anthropic, Groq, Ollama…)</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Form -->
+          <div class="panel" id="llmFormCard">
+            <div class="panel-head">
+              <div><h2 id="formTitle">➕ Agregar nueva API LLM</h2><p id="formSub">Elige proveedor y pega tu API Key. Compatible OpenAI-API.</p></div>
+              
+            </div>
+            <div class="panel-body">
+              <div style="margin-bottom:12px">
+                <label style="font-size:11px;font-weight:800;letter-spacing:.07em;color:var(--muted);text-transform:uppercase">Proveedor</label>
+                <div class="providers" id="providerGrid">
+                  <!-- filled by JS -->
+                </div>
+              </div>
+
+              <div class="form-grid">
+                <div class="field">
+                  <label>Nombre personalizado</label>
+                  <input id="fName" class="input" placeholder="Ej: OpenAI Producción">
+                </div>
+                <div class="field">
+                  <label>Modelo por defecto</label>
+                  <select id="fModel" class="select"></select>
+                  <span class="hint" id="modelHint"></span>
+                </div>
+              </div>
+
+              <div class="form-grid full" style="margin-top:14px">
+                <div class="field">
+                  <label>API Key <span style="color:var(--danger)">*</span></label>
+                  <div class="input-wrap">
+                    <input id="fKey" class="input" type="password" placeholder="sk-••••••••••••••••••••">
+                    <button class="eye" onclick="toggleEye()" title="Mostrar/ocultar">👁️</button>
+                  </div>
+                  <span class="hint">Nunca se expone en el frontend. Se envía a <code>POST /api/v1/llm/config</code> y se guarda cifrada.</span>
+                </div>
+              </div>
+
+              <div class="form-grid" style="margin-top:14px;display:none">
+                <div class="field">
+                  <label>Base URL (opcional)</label>
+                  <input id="fBase" class="input" placeholder="https://api.openai.com/v1">
+                </div>
+                <div class="field">
+                  <label>Temperatura (0-2)</label>
+                  <input id="fTemp" class="input" type="number" step="0.1" min="0" max="2" value="0.7">
+                </div>
+              </div>
+
+              <div class="form-grid" style="margin-top:14px;display:none">
+                <div class="field">
+                  <label>Max tokens</label>
+                  <input id="fMax" class="input" type="number" value="2048">
+                </div>
+                <div class="field">
+                  <label>Timeout (ms)</label>
+                  <input id="fTimeout" class="input" type="number" value="30000">
+                </div>
+              </div>
+
+              <div style="display:flex;gap:10px;margin-top:18px">
+                <button class="btn btn-ghost" style="flex:1" onclick="testLLM()">🧪 Probar conexión</button>
+                <button class="btn btn-primary" style="flex:1" onclick="saveLLM()">💾 Guardar API</button>
+              </div>
+              <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px;display:none" id="cancelEdit" onclick="cancelEdit()">Cancelar edición</button>
+
+              <div id="testResult" style="margin-top:12px;display:none;padding:12px;border-radius:10px;font-size:12px;font-weight:700"></div>
+
+              
+            </div>
+          </div>
+        </div>
+
+        </section>
+
+      <!-- VIEW: SONIDOS Y ALERTAS - CONFIGURACION COMPLETA -->
+      <section id="view-sounds" class="view">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <h2 style="font-size:18px;font-weight:900">🔊 Configuración de Sonidos y Alertas</h2>
+          <span class="tag" style="background:#fef3c7;color:#92400e;border-color:#fde68a">Web Audio · sin archivos</span>
+          <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="setSoundEnabled(true); playSound('success')">🔊 Activar</button>
+            <button class="btn btn-ghost btn-sm" onclick="setSoundEnabled(false)">🔇 Silenciar</button>
+            <button class="btn btn-primary btn-sm" onclick="stopAlarms(); playSound('test')">🧪 Probar sonido</button>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <!-- Master + Alertas -->
+          <div class="panel">
+            <div class="panel-head"><div><h2>🎛️ Controles generales</h2><p>Volumen maestro y estado</p></div><span class="tag" id="cfgSoundStatus" style="background:var(--success);color:white">● Activado</span></div>
+            <div class="panel-body" style="display:grid;gap:16px">
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:800;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--panel-2)">
+                <input type="checkbox" id="cfgSoundEnabled" onchange="setSoundEnabled(this.checked)" style="width:18px;height:18px;accent-color:var(--primary)">
+                <span>🔊 Sonidos activados</span>
+                <span style="margin-left:auto;font-size:12px;color:var(--muted)">Se guarda automáticamente</span>
+              </label>
+
+              <div>
+                <label style="font-size:11px;font-weight:800;letter-spacing:.07em;color:var(--muted);text-transform:uppercase">Volumen maestro — <span id="cfgVolLabel">75%</span></label>
+                <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
+                  <span style="font-size:18px">🔈</span>
+                  <input type="range" id="cfgMasterVol" min="0" max="100" value="75" oninput="setVolume(this.value)" style="flex:1;accent-color:var(--primary);height:6px">
+                  <span style="font-size:18px">🔊</span>
+                  <button class="btn btn-primary btn-sm" onclick="playSound('info')" title="Probar">▶️</button>
+                </div>
+                <div style="font-size:11px;color:var(--muted);margin-top:6px">Afecta a todos los sonidos • 0% = silencio • Requiere interacción del usuario la primera vez</div>
+              </div>
+
+              <div style="height:1px;background:var(--border)"></div>
+
+              <div>
+                <label style="font-size:11px;font-weight:800;letter-spacing:.07em;color:var(--muted);text-transform:uppercase">Volumen de alertas — <span id="cfgAlertVolLabel">90%</span></label>
+                <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
+                  <span>🔔</span>
+                  <input type="range" id="cfgAlertVol" min="0" max="100" value="90" oninput="setAlertVolume(this.value)" style="flex:1;accent-color:#f59e0b;height:6px">
+                  <button class="btn btn-ghost btn-sm" onclick="playAlarm(document.getElementById('cfgDefaultAlarm').value, 1)">▶️</button>
+                </div>
+              </div>
+
+              <div style="display:flex;align-items:center;gap:8px;padding:10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px">
+                <span style="font-size:20px">💡</span>
+                <div style="font-size:12px;line-height:1.4;color:#9a3412"><b>Consejo:</b> Si no escuchas nada, haz clic en cualquier parte de la página para desbloquear el audio (política de autoplay del navegador). En móvil activa también la vibración.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><div><h2>🔔 Alertas tipo celular</h2><p>Elige tu alarma por defecto</p></div><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="stopAlarms(); showToast('Alarmas detenidas','info')">⏹️ Detener</button></div>
+            <div class="panel-body" style="display:grid;gap:14px">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <label style="font-size:13px;font-weight:700">Alarma por defecto
+                  <select id="cfgDefaultAlarm" onchange="setAlertConfig({defaultAlarm:this.value})" style="width:100%;margin-top:6px;padding:10px;border-radius:10px;border:1px solid var(--border);background:white;font-weight:700">
+                    <option value="alarm_phone">📱 Teléfono</option>
+                    <option value="alarm_classic">⏰ Clásica</option>
+                    <option value="alarm_urgent">🚨 Urgente</option>
+                    <option value="alarm_soft">🔔 Suave</option>
+                    <option value="alarm_nokia">🎵 Nokia</option>
+                  </select>
+                </label>
+                <label style="font-size:13px;font-weight:700">Repeticiones (1-6)
+                  <input type="number" id="cfgLoops" min="1" max="6" value="3" onchange="setAlertConfig({loops:parseInt(this.value)})" style="width:100%;margin-top:6px;padding:10px;border-radius:10px;border:1px solid var(--border);font-weight:700">
+                </label>
+              </div>
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:800;padding:10px;border:1px solid var(--border);border-radius:12px;background:var(--panel-2)">
+                <input type="checkbox" id="cfgVibration" onchange="setAlertConfig({vibration:this.checked})" style="width:18px;height:18px;accent-color:var(--primary)">
+                <span>📳 Vibración en móvil</span>
+                <span style="margin-left:auto;font-size:12px;color:var(--muted)">navigator.vibrate</span>
+              </label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" onclick="playAlarm(document.getElementById('cfgDefaultAlarm').value, parseInt(document.getElementById('cfgLoops').value||3))">▶️ Probar alarma por defecto</button>
+                <button class="btn btn-ghost btn-sm" onclick="playAlarm('alarm_phone',3)">📱 Teléfono</button>
+                <button class="btn btn-ghost btn-sm" onclick="playAlarm('alarm_urgent',2)">🚨 Urgente</button>
+              </div>
+              <div style="font-size:11px;color:var(--muted)">Las alarmas son repetitivas y urgentes. Pulsa <b>Detener</b> para cancelar cualquier alarma en curso.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Test grid -->
+        <div class="panel" style="margin-top:16px">
+          <div class="panel-head"><div><h2>🎵 Probar todos los sonidos</h2><p>Haz clic para escuchar cada efecto • Respeta el volumen maestro</p></div><span class="tag">16 sonidos + 5 alarmas</span></div>
+          <div class="panel-body">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px" id="soundTestGrid"></div>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:16px;background:linear-gradient(135deg,#f8fafc,#f5f3ff);border:1px dashed #ddd6fe">
+          <div class="panel-body" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span style="font-size:22px">🔧</span>
+            <div style="flex:1"><b>¿No suena?</b><div style="font-size:12px;color:var(--muted)">Verifica que el navegador no tenga la pestaña silenciada, sube el volumen del sistema y haz clic en la página. El estado se sincroniza entre pestañas automáticamente.</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="localStorage.clear(); location.reload()">♻️ Restablecer</button>
+          </div>
+        </div>
+      </section>
+
+      <div style="text-align:center;padding:18px;color:var(--muted);font-size:11px">Diseñado para ayudarte • Simple, rápido y privado</div>
+    </main>
+  </div>
+
+  
+  <!-- Modal Vista Previa -->
+  <div class="doc-preview-overlay" id="previewOverlay" onclick="if(event.target===this) closePreview()">
+    <div class="doc-preview-card">
+      <div class="doc-preview-head">
+        <div style="flex:1;min-width:0">
+          <h3 id="previewTitle">Vista previa</h3>
+          <div style="font-size:11px;color:var(--muted)" id="previewSub">—</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="downloadPreview()">⬇️ Descargar</button>
+          <button class="btn btn-primary btn-sm" onclick="closePreview()">✕ Cerrar</button>
+        </div>
+      </div>
+      <div class="doc-preview-body" id="previewBody"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"><span id="toastIcon">✅</span><span id="toastMsg" style="font-size:13px;font-weight:700;color:var(--text)"></span></div>
+
+<script src="/frontend/analyzer.js"></script>
+<script src="/frontend/processor.js"></script>
+<script src="/frontend/response.js"></script>
+<script src="/frontend/app.js"></script>
+<script src="/frontend/sounds.js"></script>
+<script src="/frontend/script.js"></script>
+</body>
+</html>
